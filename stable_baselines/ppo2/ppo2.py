@@ -272,6 +272,8 @@ class PPO2(ActorCriticRLModel):
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
                     [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss],
                     td_map)
+                print(value_loss * self.vf_coef, policy_entropy * self.ent_coef, attn_loss)
+                print(loss)
             writer.add_summary(summary, (update * update_fac))
         else:
             policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
