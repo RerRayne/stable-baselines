@@ -159,31 +159,34 @@ class PPO2(ActorCriticRLModel):
                                                                       self.clip_range_ph), tf.float32))
 
                     if self.attn_loss_func:
-                        attention_loss = self.attn_loss_func()
-                        loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef + attention_loss
+                        self.attention_loss = self.attn_loss_func()
+                        self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef + self.attention_loss
                     else:
-                        loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
+                        self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
 
                     tf.summary.scalar('entropy_loss', self.entropy)
                     tf.summary.scalar('policy_gradient_loss', self.pg_loss)
                     tf.summary.scalar('value_function_loss', self.vf_loss)
                     tf.summary.scalar('approximate_kullback-leiber', self.approxkl)
                     tf.summary.scalar('clip_factor', self.clipfrac)
-                    tf.summary.scalar('loss', loss)
+                    tf.summary.scalar('loss', self.loss)
+                    tf.summary.scalar('attention_loss', self.attention_loss)
 
                     with tf.variable_scope('model'):
                         self.params = tf.trainable_variables()
+                        print(self.params)
                         if self.full_tensorboard_log:
                             for var in self.params:
                                 tf.summary.histogram(var.name, var)
-                    grads = tf.gradients(loss, self.params)
+                    grads = tf.gradients(self.loss, self.params)
+                    print(grads)
                     if self.max_grad_norm is not None:
                         grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
                     grads = list(zip(grads, self.params))
                 trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph, epsilon=1e-5)
                 self._train = trainer.apply_gradients(grads)
 
-                self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac']
+                self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'attention_loss']
 
                 with tf.variable_scope("input_info", reuse=False):
                     tf.summary.scalar('discounted_rewards', tf.reduce_mean(self.rewards_ph))
@@ -234,6 +237,8 @@ class PPO2(ActorCriticRLModel):
         :return: policy gradient loss, value function loss, policy entropy,
                 approximation of kl divergence, updated clipping range, training update operation
         """
+
+
         advs = returns - values
         advs = (advs - advs.mean()) / (advs.std() + 1e-8)
         td_map = {self.train_model.obs_ph: obs, self.action_ph: actions, self.advs_ph: advs, self.rewards_ph: returns,
@@ -253,9 +258,11 @@ class PPO2(ActorCriticRLModel):
             if self.full_tensorboard_log and (1 + update) % 10 == 0:
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
-                summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train],
+                summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, self.loss = self.sess.run(
+                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss],
                     td_map, options=run_options, run_metadata=run_metadata)
+
+
                 writer.add_run_metadata(run_metadata, 'step%d' % (update * update_fac))
             else:
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
@@ -263,10 +270,12 @@ class PPO2(ActorCriticRLModel):
                     td_map)
             writer.add_summary(summary, (update * update_fac))
         else:
-            policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                [self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train], td_map)
+            policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
+                [self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss], td_map)
+            print(value_loss * self.vf_coef, policy_entropy * self.ent_coef, attn_loss)
+            print(loss)
 
-        return policy_loss, value_loss, policy_entropy, approxkl, clipfrac
+        return policy_loss, value_loss, policy_entropy, approxkl, clipfrac, attn_loss
 
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=1, tb_log_name="PPO2",
               reset_num_timesteps=True):
@@ -331,6 +340,9 @@ class PPO2(ActorCriticRLModel):
                             mb_loss_vals.append(self._train_step(lr_now, cliprangenow, *slices, update=timestep,
                                                                  writer=writer, states=mb_states))
                     self.num_timesteps += (self.n_envs * self.noptepochs) // envs_per_batch * update_fac
+                print(np.shape(mb_loss_vals))
+                print(np.var(mb_loss_vals, axis=0))
+
 
                 loss_vals = np.mean(mb_loss_vals, axis=0)
                 t_now = time.time()
