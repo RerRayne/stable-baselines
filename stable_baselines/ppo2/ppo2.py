@@ -188,7 +188,7 @@ class PPO2(ActorCriticRLModel):
                 trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph, epsilon=1e-5)
                 self._train = trainer.apply_gradients(grads)
 
-                self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'attention_loss']
+                self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'attention_loss', 'loss']
 
                 with tf.variable_scope("input_info", reuse=False):
                     tf.summary.scalar('discounted_rewards', tf.reduce_mean(self.rewards_ph))
@@ -263,25 +263,18 @@ class PPO2(ActorCriticRLModel):
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
                     [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss],
                     td_map, options=run_options, run_metadata=run_metadata)
-                print(value_loss * self.vf_coef, policy_entropy * self.ent_coef, attn_loss)
-                print(loss)
-                print('full')
 
                 writer.add_run_metadata(run_metadata, 'step%d' % (update * update_fac))
             else:
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
                     [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss],
                     td_map)
-                print(value_loss * self.vf_coef, policy_entropy * self.ent_coef, attn_loss)
-                print(loss)
             writer.add_summary(summary, (update * update_fac))
         else:
             policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
                 [self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss], td_map)
-            print(value_loss * self.vf_coef, policy_entropy * self.ent_coef, attn_loss)
-            print(loss)
 
-        return policy_loss, value_loss, policy_entropy, approxkl, clipfrac, attn_loss
+        return policy_loss, value_loss, policy_entropy, approxkl, clipfrac, attn_loss, loss
 
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=1, tb_log_name="PPO2",
               reset_num_timesteps=True):
