@@ -42,7 +42,7 @@ class PPO2(ActorCriticRLModel):
     """
 
     def __init__(self, policy, env, gamma=0.99, n_steps=128, ent_coef=0.01, learning_rate=2.5e-4, vf_coef=0.5,
-                 max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, verbose=0,
+                 max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, attn_coef=0.1, verbose=0,
                  tensorboard_log=None, _init_setup_model=True, attn_loss=None, policy_kwargs=None,
                  full_tensorboard_log=False):
 
@@ -54,6 +54,7 @@ class PPO2(ActorCriticRLModel):
         self.n_steps = n_steps
         self.ent_coef = ent_coef
         self.vf_coef = vf_coef
+        self.attn_coef = attn_coef
         self.max_grad_norm = max_grad_norm
         self.gamma = gamma
         self.lam = lam
@@ -163,7 +164,7 @@ class PPO2(ActorCriticRLModel):
 
                     if self.attn_loss_func:
                         self.attention_loss = self.attn_loss_func()
-                        self.loss += self.attention_loss
+                        self.loss += self.attention_loss * self.attn_coef
 
                     tf.summary.scalar('entropy_loss', self.entropy)
                     tf.summary.scalar('policy_gradient_loss', self.pg_loss)
