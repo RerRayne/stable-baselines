@@ -159,9 +159,11 @@ class PPO2(ActorCriticRLModel):
                                                                       self.clip_range_ph), tf.float32))
 
                     if self.attn_loss_func:
+                        print('attn')
                         self.attention_loss = self.attn_loss_func()
                         self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef + self.attention_loss
                     else:
+                        print('no attn')
                         self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
 
                     tf.summary.scalar('entropy_loss', self.entropy)
