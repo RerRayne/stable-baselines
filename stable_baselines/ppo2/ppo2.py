@@ -260,15 +260,17 @@ class PPO2(ActorCriticRLModel):
             if self.full_tensorboard_log and (1 + update) % 10 == 0:
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
-                summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, self.loss = self.sess.run(
-                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss],
+                summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
+                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss],
                     td_map, options=run_options, run_metadata=run_metadata)
-
+                print(value_loss * self.vf_coef, policy_entropy * self.ent_coef, attn_loss)
+                print(loss)
+                print('full')
 
                 writer.add_run_metadata(run_metadata, 'step%d' % (update * update_fac))
             else:
-                summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train],
+                summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _, attn_loss, loss = self.sess.run(
+                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train, self.attention_loss, self.loss],
                     td_map)
             writer.add_summary(summary, (update * update_fac))
         else:
