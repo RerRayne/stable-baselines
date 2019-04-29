@@ -61,6 +61,7 @@ class PPO2(ActorCriticRLModel):
         self.noptepochs = noptepochs
         self.tensorboard_log = tensorboard_log
         self.full_tensorboard_log = full_tensorboard_log
+        self.attn_loss_func = attn_loss
 
         self.graph = None
         self.sess = None
@@ -71,9 +72,11 @@ class PPO2(ActorCriticRLModel):
         self.old_vpred_ph = None
         self.learning_rate_ph = None
         self.clip_range_ph = None
+        self.loss = None
         self.entropy = None
         self.vf_loss = None
         self.pg_loss = None
+        self.attention_loss = None
         self.approxkl = None
         self.clipfrac = None
         self.params = None
@@ -88,7 +91,6 @@ class PPO2(ActorCriticRLModel):
         self.n_batch = None
         self.summary = None
         self.episode_reward = None
-        self.attn_loss_func = attn_loss
 
         if _init_setup_model:
             self.setup_model()
@@ -157,14 +159,11 @@ class PPO2(ActorCriticRLModel):
                     self.approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.old_neglog_pac_ph))
                     self.clipfrac = tf.reduce_mean(tf.cast(tf.greater(tf.abs(ratio - 1.0),
                                                                       self.clip_range_ph), tf.float32))
+                    self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
 
                     if self.attn_loss_func:
-                        print('attn')
                         self.attention_loss = self.attn_loss_func()
-                        self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef + self.attention_loss
-                    else:
-                        print('no attn')
-                        self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
+                        self.loss += self.attention_loss
 
                     tf.summary.scalar('entropy_loss', self.entropy)
                     tf.summary.scalar('policy_gradient_loss', self.pg_loss)
@@ -176,12 +175,10 @@ class PPO2(ActorCriticRLModel):
 
                     with tf.variable_scope('model'):
                         self.params = tf.trainable_variables()
-                        print(self.params)
                         if self.full_tensorboard_log:
                             for var in self.params:
                                 tf.summary.histogram(var.name, var)
                     grads = tf.gradients(self.loss, self.params)
-                    print(grads)
                     if self.max_grad_norm is not None:
                         grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
                     grads = list(zip(grads, self.params))
@@ -339,9 +336,6 @@ class PPO2(ActorCriticRLModel):
                             mb_loss_vals.append(self._train_step(lr_now, cliprangenow, *slices, update=timestep,
                                                                  writer=writer, states=mb_states))
                     self.num_timesteps += (self.n_envs * self.noptepochs) // envs_per_batch * update_fac
-                print(np.shape(mb_loss_vals))
-                print(np.var(mb_loss_vals, axis=0))
-
 
                 loss_vals = np.mean(mb_loss_vals, axis=0)
                 t_now = time.time()
