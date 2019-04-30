@@ -222,7 +222,7 @@ class TensorBoardOutputFormat(KVWriter):
             self.writer = None
 
 
-def make_output_format(_format, ev_dir, log_suffix=''):
+def make_output_format(_format, ev_dir, log_suffix='', tensorboard_dir=None):
     """
     return a logger for the requested format
 
@@ -241,7 +241,8 @@ def make_output_format(_format, ev_dir, log_suffix=''):
     elif _format == 'csv':
         return CSVOutputFormat(os.path.join(ev_dir, 'progress%s.csv' % log_suffix))
     elif _format == 'tensorboard':
-        return TensorBoardOutputFormat(os.path.join(ev_dir, 'tb%s' % log_suffix))
+        assert tensorboard_dir is not None
+        return TensorBoardOutputFormat(tensorboard_dir)
     else:
         raise ValueError('Unknown format specified: %s' % (_format,))
 
@@ -542,20 +543,20 @@ class Logger(object):
 Logger.DEFAULT = Logger.CURRENT = Logger(folder=None, output_formats=[HumanOutputFormat(sys.stdout)])
 
 
-def configure(folder=None, format_strs=None):
+def configure(log_dir=None, format_strs=None, tensorboard_dir=None):
     """
     configure the current logger
 
-    :param folder: (str) the save location (if None, $OPENAI_LOGDIR, if still None, tempdir/openai-[date & time])
+    :param log_dir: (str) the save location (if None, $OPENAI_LOGDIR, if still None, tempdir/openai-[date & time])
     :param format_strs: (list) the output logging format
         (if None, $OPENAI_LOG_FORMAT, if still None, ['stdout', 'log', 'csv'])
     """
-    if folder is None:
-        folder = os.getenv('OPENAI_LOGDIR')
-    if folder is None:
-        folder = os.path.join(tempfile.gettempdir(), datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f"))
-    assert isinstance(folder, str)
-    os.makedirs(folder, exist_ok=True)
+    if log_dir is None:
+        log_dir = os.getenv('OPENAI_LOGDIR')
+    if log_dir is None:
+        log_dir = os.path.join(tempfile.gettempdir(), datetime.datetime.now().strftime("openai-%Y-%m-%d-%H-%M-%S-%f"))
+    assert isinstance(log_dir, str)
+    os.makedirs(log_dir, exist_ok=True)
 
     log_suffix = ''
     from mpi4py import MPI
@@ -569,10 +570,10 @@ def configure(folder=None, format_strs=None):
         else:
             format_strs = os.getenv('OPENAI_LOG_FORMAT_MPI', 'log').split(',')
     format_strs = filter(None, format_strs)
-    output_formats = [make_output_format(f, folder, log_suffix) for f in format_strs]
+    output_formats = [make_output_format(f, log_dir, log_suffix, tensorboard_dir) for f in format_strs]
 
-    Logger.CURRENT = Logger(folder=folder, output_formats=output_formats)
-    log('Logging to %s' % folder)
+    Logger.CURRENT = Logger(folder=log_dir, output_formats=output_formats)
+    log('Logging to %s' % log_dir)
 
 
 def reset():
