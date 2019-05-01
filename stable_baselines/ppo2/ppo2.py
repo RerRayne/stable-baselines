@@ -160,12 +160,14 @@ class PPO2(ActorCriticRLModel):
                     self.approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.old_neglog_pac_ph))
                     self.clipfrac = tf.reduce_mean(tf.cast(tf.greater(tf.abs(ratio - 1.0),
                                                                       self.clip_range_ph), tf.float32))
-                    self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
 
-                    if self.attn_loss_func:
+                    if self.attn_loss_func is not None:
                         self.attention_loss = self.attn_loss_func()
-                        self.loss += self.attention_loss * self.attn_coef
-                        tf.summary.scalar('attention_loss', self.attention_loss)
+                    else:
+                        self.attention_loss = tf.constant(0, dtype=tf.float32)
+
+                    self.loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef +\
+                                self.attention_loss * self.attn_coef
 
                     tf.summary.scalar('entropy_loss', self.entropy)
                     tf.summary.scalar('policy_gradient_loss', self.pg_loss)
@@ -173,6 +175,7 @@ class PPO2(ActorCriticRLModel):
                     tf.summary.scalar('approximate_kullback-leiber', self.approxkl)
                     tf.summary.scalar('clip_factor', self.clipfrac)
                     tf.summary.scalar('loss', self.loss)
+                    tf.summary.scalar('attention_loss', self.attention_loss)
 
                     with tf.variable_scope('model'):
                         self.params = tf.trainable_variables()
