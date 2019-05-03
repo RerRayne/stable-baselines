@@ -135,9 +135,9 @@ class SubprocVecEnv(VecEnv):
         else:
             raise NotImplementedError
 
-    def get_images(self):
+    def get_images(self, *args, **kwargs):
         for pipe in self.remotes:
-            pipe.send(('render', {"mode": 'rgb_array'}))
+            pipe.send(('render', (args, {'mode': 'rgb_array', **kwargs})))
         imgs = [pipe.recv() for pipe in self.remotes]
         return imgs
 
