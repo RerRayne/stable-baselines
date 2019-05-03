@@ -119,11 +119,9 @@ class SubprocVecEnv(VecEnv):
         self.closed = True
 
     def render(self, mode='human', *args, **kwargs):
-        for pipe in self.remotes:
-            # gather images from subprocesses
-            # `mode` will be taken into account later
-            pipe.send(('render', (args, {'mode': 'rgb_array', **kwargs})))
-        imgs = [pipe.recv() for pipe in self.remotes]
+        # gather images from subprocesses
+        # `mode` will be taken into account later
+        imgs = self.get_images(*args, **kwargs)
         # Create a big image by tiling images from subprocesses
         bigimg = tile_images(imgs)
         if mode == 'human':
