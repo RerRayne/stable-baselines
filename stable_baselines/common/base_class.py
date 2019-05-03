@@ -460,7 +460,7 @@ class ActorCriticRLModel(BaseRLModel):
               log_interval=100, tb_log_name="run", reset_num_timesteps=True):
         pass
 
-    def predict(self, observation, state=None, mask=None, deterministic=False):
+    def predict(self, observation, state=None, mask=None, deterministic=False, extra=None):
         if state is None:
             state = self.initial_state
         if mask is None:
@@ -469,7 +469,11 @@ class ActorCriticRLModel(BaseRLModel):
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
-        actions, _, states, _ = self.step(observation, state, mask, deterministic=deterministic)
+        if extra is None:
+            actions, _, states, _ = self.step(observation, state, mask, deterministic=deterministic)
+        else:
+            actions, _, states, _, extra_values = self.step(
+                observation, state, mask, deterministic=deterministic, extra=extra)
 
         clipped_actions = actions
         # Clip the actions to avoid out of bound error
@@ -481,7 +485,10 @@ class ActorCriticRLModel(BaseRLModel):
                 raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
             clipped_actions = clipped_actions[0]
 
-        return clipped_actions, states
+        if extra is None:
+            return clipped_actions, states
+        else:
+            return clipped_actions, states, extra_values
 
     def action_probability(self, observation, state=None, mask=None, actions=None):
         if state is None:

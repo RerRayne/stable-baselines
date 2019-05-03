@@ -443,14 +443,18 @@ class FeedForwardPolicy(ActorCriticPolicy):
         self.initial_state = None
         self._setup_init()
 
-    def step(self, obs, state=None, mask=None, deterministic=False):
+    def step(self, obs, state=None, mask=None, deterministic=False, extra=None):
         if deterministic:
-            action, value, neglogp = self.sess.run([self.deterministic_action, self._value, self.neglogp],
-                                                   {self.obs_ph: obs})
+            inputs = [self.deterministic_action, self._value, self.neglogp]
         else:
-            action, value, neglogp = self.sess.run([self.action, self._value, self.neglogp],
-                                                   {self.obs_ph: obs})
-        return action, value, self.initial_state, neglogp
+            inputs = [self.action, self._value, self.neglogp]
+        if extra is not None:
+            inputs.append(extra)
+            action, value, neglogp, extra_value = self.sess.run(inputs, {self.obs_ph: obs})
+            return action, value, self.initial_state, neglogp, extra_value
+        else:
+            action, value, neglogp = self.sess.run(inputs, {self.obs_ph: obs})
+            return action, value, self.initial_state, neglogp
 
     def proba_step(self, obs, state=None, mask=None):
         return self.sess.run(self.policy_proba, {self.obs_ph: obs})
