@@ -380,6 +380,7 @@ class PPO2(ActorCriticRLModel):
             "n_steps": self.n_steps,
             "vf_coef": self.vf_coef,
             "ent_coef": self.ent_coef,
+            "attn_coef": self.attn_coef,
             "max_grad_norm": self.max_grad_norm,
             "learning_rate": self.learning_rate,
             "lam": self.lam,
