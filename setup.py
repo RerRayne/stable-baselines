@@ -120,7 +120,7 @@ setup(name='stable_baselines',
           'matplotlib',
           'seaborn',
           'glob2'
-      ] + tf_dependency,
+      ], # + tf_dependency,  # avoid breaking Tensorflow Docker image
       extras_require={
         'tests': [
             'pytest==3.5.1',
